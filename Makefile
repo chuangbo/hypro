@@ -1,4 +1,5 @@
 GOBIN = hypro hypro-server
+SERVER_NAME = localhost
 PROTOS = protos/hypro.pb.go
 GOFILES=$(wildcard *.go) $(wildcard */*.go)  $(wildcard cmd/*/*.go)
 
