@@ -1,5 +1,6 @@
 ## 🧚 hypro
 [![GoDoc](https://godoc.org/github.com/chuangbo/hypro?status.svg)](https://godoc.org/github.com/chuangbo/hypro)
+[![Go Report Card](https://goreportcard.com/badge/github.com/chuangbo/hypro)](https://goreportcard.com/report/github.com/chuangbo/hypro)
 
 *HYpertext-transfer-protocol PROxy*
 
