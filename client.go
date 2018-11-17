@@ -49,20 +49,20 @@ func (c *Client) Dial() error {
 	serverAddr := fmt.Sprintf("%s:%d", c.Server, c.ServerPort)
 	// log.Println("serverAddr", serverAddr)
 
-	var conn *grpc.ClientConn
-	var err error
+	var opt grpc.DialOption
 
 	if c.Insecure {
-		conn, err = grpc.Dial(serverAddr, grpc.WithInsecure())
+		opt = grpc.WithInsecure()
 	} else {
 		creds, err := c.GetTransportCredentials()
 		if err != nil {
 			return errors.Wrapf(err, "could not get transport credentials")
 		}
 
-		conn, err = grpc.Dial(serverAddr, grpc.WithTransportCredentials(creds))
+		opt = grpc.WithTransportCredentials(creds)
 	}
 
+	conn, err := grpc.Dial(serverAddr, opt)
 	if err != nil {
 		return errors.Wrapf(err, "failed to connect server %s", serverAddr)
 	}
