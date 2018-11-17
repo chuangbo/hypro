@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package protos;
+
+service Tunnel {
+    rpc Register(RegisterRequest) returns (RegisterResponse);
+    rpc CreateTunnel(stream Packet) returns (stream Packet);
+}
+
+message RegisterRequest {
+    string domain = 10;
+}
+
+message RegisterResponse {
+    string token = 10;
+    string full_domain = 20;
+}
+
+message Packet {
+    bytes data = 10;
+}
