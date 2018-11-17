@@ -292,7 +292,7 @@ func (s *Server) CreateTunnel(stream pb.Tunnel_CreateTunnelServer) error {
 	}
 }
 
-// TunnelExists checks if the tunnel registerred and connected
+// TunnelExists checks if the tunnel registered and connected
 func (s *Server) TunnelExists(host string) bool {
 	s.mu.RLock()
 	c, ok := s.users[host]
