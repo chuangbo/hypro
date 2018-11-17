@@ -1,4 +1,5 @@
-## 🧚🏻‍♀️ hypro
+## 🧚 hypro
+[![GoDoc](https://godoc.org/github.com/chuangbo/hypro?status.svg)](https://godoc.org/github.com/chuangbo/hypro)
 
 *HYpertext-transfer-protocol PROxy*
 
