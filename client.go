@@ -199,7 +199,7 @@ func (c *Client) CreateTunnel() error {
 	log.Println("create tunnel")
 	errCh := make(chan error)
 
-	creds := &grpcAuth{host: &c.Domain, token: &c.token, insecure: &c.Insecure}
+	creds := &grpcAuth{host: c.Domain, token: c.token, insecure: c.Insecure}
 	stream, err := c.tc.CreateTunnel(context.Background(), grpc.PerRPCCredentials(creds))
 
 	if err != nil {
