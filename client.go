@@ -70,6 +70,10 @@ func (c *Client) Dial() error {
 	c.gc = conn
 	c.tc = pb.NewTunnelClient(conn)
 
+	if err := c.CheckVersion(); err != nil {
+		return errors.Wrapf(err, "please upgrade hypro client")
+	}
+
 	if err := c.Register(); err != nil {
 		return err
 	}
@@ -178,6 +182,23 @@ func (c *Client) DialAndServeReverseProxy(target string) error {
 // Shutdown the server gracefully
 func (c *Client) Shutdown() error {
 	return errors.New("shutdown not implemented")
+}
+
+// CheckVersion get the versions from server and check
+func (c *Client) CheckVersion() error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	r, err := c.tc.CheckVersion(ctx, &pb.CheckVersionRequest{ClientVersion: Version})
+	if err != nil {
+		return errors.Wrap(err, "could not check version")
+	}
+	if !r.Compatible {
+		return errors.Errorf(
+			"version incompatible: client %s, server %s, min %s",
+			Version, r.ServerVersion, r.MinVersion,
+		)
+	}
+	return nil
 }
 
 // Register the sub domain at the server.

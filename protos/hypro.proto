@@ -3,8 +3,19 @@ syntax = "proto3";
 package protos;
 
 service Tunnel {
+    rpc CheckVersion(CheckVersionRequest) returns (CheckVersionResponse);
     rpc Register(RegisterRequest) returns (RegisterResponse);
     rpc CreateTunnel(stream Packet) returns (stream Packet);
+}
+
+message CheckVersionRequest {
+    string client_version = 10;
+}
+
+message CheckVersionResponse {
+    bool compatible = 10;
+    string server_version = 20;
+    string min_version = 30;
 }
 
 message RegisterRequest {

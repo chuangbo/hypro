@@ -5,6 +5,7 @@ require (
 	github.com/acroca/go-symbols v0.0.0-20180523203557-953befd75e22 // indirect
 	github.com/alecthomas/gometalinter v2.0.11+incompatible // indirect
 	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/golang/protobuf v1.2.0
 	github.com/google/shlex v0.0.0-20181106134648-c34317bd91bf // indirect
 	github.com/mdempsky/gocode v0.0.0-20181114215439-183fa647c7b6 // indirect

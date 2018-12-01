@@ -162,6 +162,19 @@ func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Con
 	return c, nil
 }
 
+// CheckVersion returns the server version and proto version
+func (s *Server) CheckVersion(ctx context.Context, req *pb.CheckVersionRequest) (*pb.CheckVersionResponse, error) {
+	compatible, err := checkVersionCompatible(req.ClientVersion)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not check version compatible")
+	}
+	return &pb.CheckVersionResponse{
+		Compatible:    compatible,
+		ServerVersion: Version,
+		MinVersion:    MinClientVersion,
+	}, nil
+}
+
 // Register the client
 func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	log.Println("Registering domain:", req.Domain)
