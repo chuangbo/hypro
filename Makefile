@@ -11,6 +11,8 @@ hypro: $(PROTOS) ${GOFILES}
 hypro-server: $(PROTOS) ${GOFILES}
 	go build ./cmd/hypro-server
 
+protos: $(PROTOS)
+
 protos/%.pb.go:protos/%.proto
 	protoc -I protos/ $< --go_out=plugins=grpc:protos
 
@@ -33,4 +35,4 @@ certs:
 	# Self-sign server certificate:
 	@openssl x509 -req -days 365 -in certs/server.csr -CA certs/ca.crt -CAkey certs/ca.key -set_serial 01 -out certs/server.crt
 
-.PHONY: certs
+.PHONY: certs protos
