@@ -13,16 +13,12 @@ const (
 )
 
 var (
-	serverVersion, minClientVersion semver.Version
+	serverVersion, _    = semver.Make(Version)
+	minClientVersion, _ = semver.Make(MinClientVersion)
 
 	// errors
 	errVersionIncorrect = errors.New("version incorrect")
 )
-
-func init() {
-	serverVersion, _ = semver.Make(Version)
-	minClientVersion, _ = semver.Make(MinClientVersion)
-}
 
 // checkVersionCompatible checks if the client's protocol is compatible
 func checkVersionCompatible(clientVersion string) (bool, error) {
