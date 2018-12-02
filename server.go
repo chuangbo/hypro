@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 const recycleClientDelay = time.Second
@@ -182,7 +183,7 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 
 	if s.TunnelExists(req.Domain) {
 		log.Println("Register: domain unavailable:", req.Domain)
-		return nil, grpc.Errorf(codes.AlreadyExists, "domain %s unavailable", req.Domain)
+		return nil, status.Errorf(codes.AlreadyExists, "domain %s unavailable", req.Domain)
 	}
 
 	if s.HTTPPort != "80" {
@@ -191,7 +192,7 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 
 	token, err := generateRandomString(32)
 	if err != nil {
-		return nil, grpc.Errorf(codes.Internal, "could not create token")
+		return nil, status.Errorf(codes.Internal, "could not create token")
 	}
 
 	s.mu.Lock()
@@ -223,7 +224,7 @@ func (s *Server) CreateTunnel(stream pb.Tunnel_CreateTunnelServer) error {
 	host := md["host"][0]
 
 	if !ok || !s.Authenticated(host, md["token"][0]) {
-		return grpc.Errorf(codes.Unauthenticated, "valid token required")
+		return status.Errorf(codes.Unauthenticated, "valid token required")
 	}
 
 	s.mu.RLock()
@@ -233,7 +234,7 @@ func (s *Server) CreateTunnel(stream pb.Tunnel_CreateTunnelServer) error {
 	c.mu.RLock()
 	if len(c.idleConns) >= maxWaitingConnections {
 		c.mu.RUnlock()
-		return grpc.Errorf(codes.ResourceExhausted, "reached max waiting connections %d", maxWaitingConnections)
+		return status.Errorf(codes.ResourceExhausted, "reached max waiting connections %d", maxWaitingConnections)
 	}
 	c.mu.RUnlock()
 
