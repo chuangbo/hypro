@@ -167,7 +167,7 @@ func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Con
 func (s *Server) CheckVersion(ctx context.Context, req *pb.CheckVersionRequest) (*pb.CheckVersionResponse, error) {
 	compatible, err := checkVersionCompatible(req.ClientVersion)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not check version compatible")
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	return &pb.CheckVersionResponse{
 		Compatible:    compatible,

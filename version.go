@@ -15,16 +15,13 @@ const (
 var (
 	serverVersion, _    = semver.Make(Version)
 	minClientVersion, _ = semver.Make(MinClientVersion)
-
-	// errors
-	errVersionIncorrect = errors.New("version incorrect")
 )
 
 // checkVersionCompatible checks if the client's protocol is compatible
 func checkVersionCompatible(clientVersion string) (bool, error) {
 	v, err := semver.Make(clientVersion)
 	if err != nil {
-		return false, errVersionIncorrect
+		return false, errors.Wrap(err, "version incorrect")
 	}
 	return v.GTE(minClientVersion) && v.LTE(serverVersion), nil
 }
