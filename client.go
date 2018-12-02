@@ -229,78 +229,81 @@ func (c *Client) CreateTunnel() error {
 
 	p1, p2 := net.Pipe()
 
-	go func() {
-		defer log.Println("tunnel closed")
-		defer close(errCh)
+	go c.recvLoop(stream, p1, p2, errCh)
+	go c.sendLoop(stream, p1, errCh)
 
-		log.Println("start recv loop")
-		defer log.Println("recv loop stopped")
-		defer p1.Close()
+	return <-errCh
+}
 
-		accepted := false
+func (c *Client) recvLoop(stream pb.Tunnel_CreateTunnelClient, p1 io.WriteCloser, p2 net.Conn, errCh chan error) {
+	defer log.Println("tunnel closed")
+	defer close(errCh)
 
-		for {
-			packet, err := stream.Recv()
-			// log.Println("Received", packet, err)
+	log.Println("start recv loop")
+	defer log.Println("recv loop stopped")
+	defer p1.Close()
+
+	accepted := false
+
+	for {
+		packet, err := stream.Recv()
+		// log.Println("Received", packet, err)
+		if err == io.EOF {
+			log.Println("recv eof")
+			return
+		}
+		if err != nil {
+			log.Println("could not recv from stream:", err)
+			errCh <- err
+			return
+		}
+		if !accepted {
+			accepted = true
+			c.reqConns <- p2
+		}
+		log.Println("Received", len(packet.Data))
+		if len(packet.Data) > 0 {
+			// log.Println("writing", packet.Data)
+			nw, err := p1.Write(packet.Data)
+			if err != nil {
+				log.Println("could not write to pipe:", err)
+				return
+			}
+			if nw != len(packet.Data) {
+				// TODO: close with error
+				log.Println("could not write all to pipe:", io.ErrShortWrite)
+				return
+			}
+		}
+	}
+}
+
+func (c *Client) sendLoop(stream pb.Tunnel_CreateTunnelClient, p1 io.Reader, errCh chan error) {
+	log.Println("start send loop")
+	defer log.Println("send loop stopped")
+
+	buf := make([]byte, 32*1024)
+
+	for {
+		nr, err := p1.Read(buf)
+		if nr > 0 {
+			packet := &pb.Packet{Data: buf[0:nr]}
+			err := stream.Send(packet)
 			if err == io.EOF {
-				log.Println("recv eof")
 				return
 			}
 			if err != nil {
-				log.Println("could not recv from stream:", err)
+				log.Println("send error:", err)
 				errCh <- err
 				return
 			}
-			if !accepted {
-				accepted = true
-				c.reqConns <- p2
-			}
-			log.Println("Received", len(packet.Data))
-			if len(packet.Data) > 0 {
-				// log.Println("writing", packet.Data)
-				nw, err := p1.Write(packet.Data)
-				if err != nil {
-					log.Println("could not write to pipe:", err)
-					return
-				}
-				if nw != len(packet.Data) {
-					// TODO: close with error
-					log.Println("could not write all to pipe:", io.ErrShortWrite)
-					return
-				}
-			}
 		}
-	}()
-
-	go func() {
-		log.Println("start send loop")
-		defer log.Println("send loop stopped")
-
-		buf := make([]byte, 32*1024)
-
-		for {
-			nr, err := p1.Read(buf)
-			if nr > 0 {
-				packet := &pb.Packet{Data: buf[0:nr]}
-				err := stream.Send(packet)
-				if err == io.EOF {
-					return
-				}
-				if err != nil {
-					log.Println("send error:", err)
-					errCh <- err
-					return
-				}
-			}
-			if err == io.EOF {
-				return
-			}
-			if err != nil {
-				log.Println("could not read from pipe:", err)
-				return
-			}
+		if err == io.EOF {
+			return
 		}
-	}()
-
-	return <-errCh
+		if err != nil {
+			log.Println("could not read from pipe:", err)
+			return
+		}
+	}
 }

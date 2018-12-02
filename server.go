@@ -71,12 +71,38 @@ func ListenAndServe(grpcAddr, httpAddr, certFile, keyFile string) error {
 // ListenAndServe listen on grpc addr and tcp on http addr to provide
 // hypro http proxy through grpc connection with the users
 func (s *Server) ListenAndServe() error {
+	err := s.initServer()
+	if err != nil {
+		return err
+	}
+
 	// grpc server
 	log.Printf("Starting grpc server at %v\n", s.GRPCAddr)
 	lis, err := net.Listen("tcp", s.GRPCAddr)
 	if err != nil {
 		return errors.Wrapf(err, "failed to listen grpc on %s", s.GRPCAddr)
 	}
+
+	grpcServer, err := makeGrpcServer(s.CertFile, s.KeyFile)
+	if err != nil {
+		return errors.Wrap(err, "could not make grpc server")
+	}
+
+	pb.RegisterTunnelServer(grpcServer, s)
+	go grpcServer.Serve(lis)
+	// recycle no connection users
+	go s.recycleUsers()
+
+	// http reverse proxy
+	reverseProxy := s.makeReverseProxy()
+	log.Printf("Starting http server at %v\n", s.HTTPAddr)
+	if err := http.ListenAndServe(s.HTTPAddr, reverseProxy); err != nil {
+		return errors.Wrapf(err, "failed to listen http on %s", s.HTTPAddr)
+	}
+	return nil
+}
+
+func (s *Server) initServer() error {
 	if s.HTTPAddr == "" {
 		return errors.New("http addr could not be empty")
 	}
@@ -96,14 +122,17 @@ func (s *Server) ListenAndServe() error {
 		}
 		s.HTTPPort = httpPort
 	}
+	return nil
+}
 
-	var grpcServer *grpc.Server
+func makeGrpcServer(certFile, keyFile string) (grpcServer *grpc.Server, err error) {
 	var opt grpc.ServerOption
 
-	if s.CertFile != "" && s.KeyFile != "" {
-		creds, err := credentials.NewServerTLSFromFile(s.CertFile, s.KeyFile)
+	if certFile != "" && keyFile != "" {
+		creds, err1 := credentials.NewServerTLSFromFile(certFile, keyFile)
 		if err != nil {
-			return errors.Wrap(err, "certificates invalid")
+			err = errors.Wrap(err1, "certificates invalid")
+			return
 		}
 		opt = grpc.Creds(creds)
 	}
@@ -113,14 +142,11 @@ func (s *Server) ListenAndServe() error {
 	} else {
 		grpcServer = grpc.NewServer()
 	}
+	return
+}
 
-	pb.RegisterTunnelServer(grpcServer, s)
-	go grpcServer.Serve(lis)
-	// recycle no connection users
-	go s.recycleUsers()
-
-	// http reverse proxy
-	reverseProxy := &httputil.ReverseProxy{
+func (s *Server) makeReverseProxy() http.Handler {
+	return &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
 			r.URL.Scheme = "http"
 			r.URL.Host = r.Host
@@ -134,11 +160,6 @@ func (s *Server) ListenAndServe() error {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
-	log.Printf("Starting http server at %v\n", s.HTTPAddr)
-	if err := http.ListenAndServe(s.HTTPAddr, reverseProxy); err != nil {
-		return errors.Wrapf(err, "failed to listen http on %s", s.HTTPAddr)
-	}
-	return nil
 }
 
 // Shutdown close the server
@@ -243,42 +264,47 @@ func (s *Server) CreateTunnel(stream pb.Tunnel_CreateTunnelServer) error {
 	c.putIdleConn(p2)
 	defer c.removeIdleConn(p2)
 
-	go func() {
-		defer log.Println("tunnel closed")
+	go s.recvLoop(stream, p1)
+	return s.sendLoop(stream, p1)
+}
 
-		log.Println("start recv loop")
-		defer log.Println("recv loop stopped")
-		defer p1.Close()
+func (s *Server) recvLoop(stream pb.Tunnel_CreateTunnelServer, p1 io.WriteCloser) {
+	defer log.Println("tunnel closed")
 
-		for {
-			packet, err := stream.Recv()
-			// log.Println("Received", packet, err)
-			if err == io.EOF {
-				log.Println("recv eof")
-				return
-			}
-			if err != nil {
-				log.Println("could not recv from stream:", err)
-				return
-			}
-			log.Println("Received", len(packet.Data))
-			if len(packet.Data) == 0 {
-				continue
-			}
-			// log.Println("writing", packet.Data)
-			nw, err := p1.Write(packet.Data)
-			if err != nil {
-				log.Println("could not write to pipe:", err)
-				return
-			}
-			if nw != len(packet.Data) {
-				// TODO: close with error
-				log.Println("could not write all to pipe:", io.ErrShortWrite)
-				return
-			}
+	log.Println("start recv loop")
+	defer log.Println("recv loop stopped")
+	defer p1.Close()
+
+	for {
+		packet, err := stream.Recv()
+		// log.Println("Received", packet, err)
+		if err == io.EOF {
+			log.Println("recv eof")
+			return
 		}
-	}()
+		if err != nil {
+			log.Println("could not recv from stream:", err)
+			return
+		}
+		log.Println("Received", len(packet.Data))
+		if len(packet.Data) == 0 {
+			continue
+		}
+		// log.Println("writing", packet.Data)
+		nw, err := p1.Write(packet.Data)
+		if err != nil {
+			log.Println("could not write to pipe:", err)
+			return
+		}
+		if nw != len(packet.Data) {
+			// TODO: close with error
+			log.Println("could not write all to pipe:", io.ErrShortWrite)
+			return
+		}
+	}
+}
 
+func (s *Server) sendLoop(stream pb.Tunnel_CreateTunnelServer, p1 io.Reader) error {
 	log.Println("start send loop")
 	defer log.Println("send loop stopped")
 
