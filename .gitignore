@@ -13,3 +13,8 @@
 
 .vscode
 certs/
+
+/hypro
+/hypro-server
+
+dist/
