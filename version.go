@@ -7,9 +7,9 @@ import (
 
 const (
 	// Version is the current hypro version
-	Version = "0.1.0"
+	Version = "0.2.0"
 	// MinClientVersion is the current hypro proto version
-	MinClientVersion = "0.1.0"
+	MinClientVersion = "0.2.0"
 )
 
 var (

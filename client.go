@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -49,20 +50,19 @@ func (c *Client) Dial() error {
 	serverAddr := fmt.Sprintf("%s:%d", c.Server, c.ServerPort)
 	// log.Println("serverAddr", serverAddr)
 
-	var opt grpc.DialOption
+	var creds credentials.TransportCredentials
 
 	if c.Insecure {
-		opt = grpc.WithInsecure()
+		creds = insecure.NewCredentials()
 	} else {
-		creds, err := c.GetTransportCredentials()
+		var err error
+		creds, err = c.GetTransportCredentials()
 		if err != nil {
 			return errors.Wrapf(err, "could not get transport credentials")
 		}
-
-		opt = grpc.WithTransportCredentials(creds)
 	}
 
-	conn, err := grpc.Dial(serverAddr, opt)
+	conn, err := grpc.NewClient(serverAddr, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return errors.Wrapf(err, "failed to connect server %s", serverAddr)
 	}

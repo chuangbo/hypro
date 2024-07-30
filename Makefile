@@ -14,7 +14,7 @@ hypro-server: $(PROTOS) ${GOFILES}
 protos: $(PROTOS)
 
 protos/%.pb.go:protos/%.proto
-	protoc -I protos/ $< --go_out=plugins=grpc:protos
+	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative $<
 
 clean:
 	rm $(GOBIN)

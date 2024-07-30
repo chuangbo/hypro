@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,6 +40,8 @@ type Server struct {
 	recycles chan *user
 
 	done chan struct{}
+
+	pb.UnimplementedTunnelServer
 }
 
 type user struct {
@@ -130,7 +133,7 @@ func makeGrpcServer(certFile, keyFile string) (grpcServer *grpc.Server, err erro
 
 	if certFile != "" && keyFile != "" {
 		creds, err1 := credentials.NewServerTLSFromFile(certFile, keyFile)
-		if err != nil {
+		if err1 != nil {
 			err = errors.Wrap(err1, "certificates invalid")
 			return
 		}
@@ -242,9 +245,24 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 // TODO: use metadata or custom auth to bind
 func (s *Server) CreateTunnel(stream pb.Tunnel_CreateTunnelServer) error {
 	md, ok := metadata.FromIncomingContext(stream.Context())
-	host := md["host"][0]
+	if !ok {
+		return status.Errorf(codes.InvalidArgument, "missing metadata")
+	}
 
-	if !ok || !s.Authenticated(host, md["token"][0]) {
+	if len(md["authorization"]) < 1 {
+		return status.Errorf(codes.InvalidArgument, "received empty authorization token from client")
+	}
+
+	authorization := strings.TrimPrefix(md["authorization"][0], "Basic ")
+	parts := strings.SplitN(authorization, ":", 2)
+
+	if len(parts) != 2 {
+		return status.Errorf(codes.InvalidArgument, "received invalid authorization from client")
+	}
+
+	host, token := parts[0], parts[1]
+
+	if !s.Authenticated(host, token) {
 		return status.Errorf(codes.Unauthenticated, "valid token required")
 	}
 
@@ -349,7 +367,7 @@ func (s *Server) TunnelExists(host string) bool {
 func (s *Server) Authenticated(host, token string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return host != "" && token != "" && s.users[host].token == token
+	return host != "" && token != "" && s.users[host] != nil && s.users[host].token == token
 }
 
 func (s *Server) getIdleConn(host string) (net.Conn, error) {

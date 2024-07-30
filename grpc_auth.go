@@ -1,6 +1,9 @@
 package hypro
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // grpcAuth implements credentials.PerRPCCredentials
 type grpcAuth struct {
@@ -10,8 +13,7 @@ type grpcAuth struct {
 
 func (a *grpcAuth) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
 	return map[string]string{
-		"host":  a.host,
-		"token": a.token,
+		"authorization": fmt.Sprintf("Basic %s:%s", a.host, a.token),
 	}, nil
 }
 
